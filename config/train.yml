@@ -1,5 +1,5 @@
 # project
-PROJ_NAME: pos-resnet34-TBN
+PROJ_NAME: pos-resnet34-TBN-BaseNet-Clf
 
 EVALUATE: False
 

@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.utils.model_zoo import load_url
 from lib.model.layer.sync_batchnorm import SynchronizedBatchNorm2d
 from lib.model.layer.trans_norm import TransNorm2d
+OPTION = "TransNorm"
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -37,12 +38,16 @@ class BasicBlock(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
-        # self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        # self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.downsample = downsample
         self.stride = stride
 
@@ -71,16 +76,22 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        # self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
                                padding=1, bias=False)
-        # self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1,
                                bias=False)
-        # self.bn3 = SynchronizedBatchNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
-        self.bn3 = TransNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn3 = SynchronizedBatchNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn3 = TransNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -115,16 +126,22 @@ class Bottleneck_CAFFE(nn.Module):
         super(Bottleneck_CAFFE, self).__init__()
         # add stride to conv1x1
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False)
-        # self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn1 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn1 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1,
                                padding=1, bias=False)
-        # self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
-        self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn2 = SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn2 = TransNorm2d(planes, momentum=BN_MOMENTUM)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1,
                                bias=False)
-        # self.bn3 = SynchronizedBatchNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
-        self.bn3 = TransNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn3 = SynchronizedBatchNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn3 = TransNorm2d(planes * self.expansion, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -209,8 +226,10 @@ class PosePredictor(nn.Module):
                     padding=padding,
                     output_padding=output_padding,
                     bias=False))
-            layers.append(SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM))
-            # layers.append(TransNorm2d(planes, momentum=BN_MOMENTUM))
+            if OPTION == "BatchNorm":
+                layers.append(SynchronizedBatchNorm2d(planes, momentum=BN_MOMENTUM))
+            elif OPTION == "TransNorm":
+                layers.append(TransNorm2d(planes, momentum=BN_MOMENTUM))
             layers.append(nn.ReLU(inplace=True))
             self.inplanes = planes
 
@@ -251,8 +270,10 @@ class PoseResNet(nn.Module):
         super(PoseResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3,
                                bias=False)
-        # self.bn1 = SynchronizedBatchNorm2d(64, momentum=BN_MOMENTUM)
-        self.bn1 = TransNorm2d(64, momentum=BN_MOMENTUM)
+        if OPTION == "BatchNorm":
+            self.bn1 = SynchronizedBatchNorm2d(64, momentum=BN_MOMENTUM)
+        elif OPTION == "TransNorm":
+            self.bn1 = TransNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])

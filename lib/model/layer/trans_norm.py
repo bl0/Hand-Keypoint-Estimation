@@ -121,7 +121,7 @@ class _TransNorm(Module):
 
 
 
-    def forward(self, input, last_flag = False, option='None', running_flag=False, kernel= 'Student'):
+    def forward(self, input, last_flag = False, option='residual', running_flag=False, kernel= 'Student'):
         self._check_input_dim(input)
         if self.training :  ## train mode
             batch_size = input.size()[0] // 2
@@ -181,7 +181,6 @@ class _TransNorm(Module):
                 return output, tau, cur_mean_source, cur_mean_target, output_mean_source, output_mean_target
             else:
                 return output
-
 
         else: ##test mode
             x_hat = F.batch_norm(

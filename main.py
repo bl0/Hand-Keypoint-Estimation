@@ -161,11 +161,14 @@ def main():
             # forward source
             inputs = torch.cat((source_inputs, target_inputs), dim=0)
             feats = base_net(inputs)
-            feat_s, _ = feats[:batch_size], feats[batch_size:]
+            # feat_s, _ = feats[:batch_size], feats[batch_size:]
+
+            output_s1 = pred_net_1(feats)[:batch_size]
+            output_s2 = pred_net_2(feats)[:batch_size]
 
             # feat_s = base_net(source_inputs)
-            output_s1 = pred_net_1(feat_s)
-            output_s2 = pred_net_2(feat_s)
+            # output_s1 = pred_net_1(feat_s)
+            # output_s2 = pred_net_2(feat_s)
 
             loss_s1 = criterion(output_s1, source_heats).sum() / source_inputs.size(0)
             loss_s2 = criterion(output_s2, source_heats).sum() / source_inputs.size(0)
@@ -182,10 +185,16 @@ def main():
             #################################
             # forward source again
             feats = base_net(inputs)
-            feat_s, feat_t = feats[:batch_size], feats[batch_size:]
+            # feat_s, feat_t = feats[:batch_size], feats[batch_size:]
+
+            output_1 = pred_net_1(feats)
+            output_2 = pred_net_2(feats)
+            output_s1, output_t1 = output_1[:batch_size], output_1[batch_size:]
+            output_s2, output_t2 = output_2[:batch_size], output_2[batch_size:]
+
             # feat_s = base_net(source_inputs)
-            output_s1 = pred_net_1(feat_s)
-            output_s2 = pred_net_2(feat_s)
+            # output_s1 = pred_net_1(feat_s)
+            # output_s2 = pred_net_2(feat_s)
 
             loss_s1 = criterion(output_s1, source_heats).sum() / source_inputs.size(0)
             loss_s2 = criterion(output_s2, source_heats).sum() / source_inputs.size(0)
@@ -194,8 +203,9 @@ def main():
 
             # forward target
             # feat_t = base_net(target_inputs)
-            output_t1 = pred_net_1(feat_t)
-            output_t2 = pred_net_2(feat_t)
+            # output_t1 = pred_net_1(feat_t)
+            # output_t2 = pred_net_2(feat_t)
+
             loss_dis = discrepancy(output_t1, output_t2)
             loss = loss_s - loss_dis
 
@@ -211,9 +221,11 @@ def main():
                 # forward target
                 # feat_t = base_net(target_inputs)
                 feats = base_net(inputs)
+                output_t1 = pred_net_1(feats)[batch_size:]
+                output_t2 = pred_net_2(feats)[batch_size:]
                 feat_s, feat_t = feats[:batch_size], feats[batch_size:]
-                output_t1 = pred_net_1(feat_t)
-                output_t2 = pred_net_2(feat_t)
+                # output_t1 = pred_net_1(feat_t)
+                # output_t2 = pred_net_2(feat_t)
                 loss_dis = discrepancy(output_t1, output_t2)
 
                 # update F
