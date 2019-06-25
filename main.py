@@ -46,6 +46,7 @@ def main():
     ])
 
     # train
+    print("start loading data")
     source_dset = HandKptDataset(config.DATA.SOURCE.TRAIN.DIR, config.DATA.SOURCE.TRAIN.LBL_FILE,
                                  stride=config.MODEL.HEATMAP_STRIDE, transformer=train_transformer)
 
@@ -56,6 +57,8 @@ def main():
                                      stride=config.MODEL.HEATMAP_STRIDE, transformer=test_transformer)
     target_val_dset = HandKptDataset(config.DATA.TARGET.VAL.DIR, config.DATA.TARGET.VAL.LBL_FILE,
                                      stride=config.MODEL.HEATMAP_STRIDE, transformer=test_transformer)
+    print("end loading data")
+
 
     # train
     source_loader = torch.utils.data.DataLoader(
@@ -135,6 +138,7 @@ def main():
                                    total=config.TRAIN.MAX_ITER,
                                    initial=config.TRAIN.START_ITERS)
     epoch = 0
+    global_step = 0
 
     while logger.global_step < config.TRAIN.MAX_ITER:
         for (source_data, target_data) in tqdm.tqdm(
@@ -149,12 +153,17 @@ def main():
             source_inputs = source_inputs.to(device)
             source_heats = source_heats.to(device)
             target_inputs = target_inputs.to(device)
+            batch_size = len(source_inputs)
 
             #################################
             #            STAGE 1            #
             #################################
             # forward source
-            feat_s = base_net(source_inputs)
+            inputs = torch.cat((source_inputs, target_inputs), dim=0)
+            feats = base_net(inputs)
+            feat_s, _ = feats[:batch_size], feats[batch_size:]
+
+            # feat_s = base_net(source_inputs)
             output_s1 = pred_net_1(feat_s)
             output_s2 = pred_net_2(feat_s)
 
@@ -172,7 +181,9 @@ def main():
             #            STAGE 2            #
             #################################
             # forward source again
-            feat_s = base_net(source_inputs)
+            feats = base_net(inputs)
+            feat_s, feat_t = feats[:batch_size], feats[batch_size:]
+            # feat_s = base_net(source_inputs)
             output_s1 = pred_net_1(feat_s)
             output_s2 = pred_net_2(feat_s)
 
@@ -182,7 +193,7 @@ def main():
             loss_s = loss_s1 + loss_s2
 
             # forward target
-            feat_t = base_net(target_inputs)
+            # feat_t = base_net(target_inputs)
             output_t1 = pred_net_1(feat_t)
             output_t2 = pred_net_2(feat_t)
             loss_dis = discrepancy(output_t1, output_t2)
@@ -198,7 +209,9 @@ def main():
             #################################
             for i in range(config.TRAIN.MCD.NUM_K):
                 # forward target
-                feat_t = base_net(target_inputs)
+                # feat_t = base_net(target_inputs)
+                feats = base_net(inputs)
+                feat_s, feat_t = feats[:batch_size], feats[batch_size:]
                 output_t1 = pred_net_1(feat_t)
                 output_t2 = pred_net_2(feat_t)
                 loss_dis = discrepancy(output_t1, output_t2)
@@ -246,6 +259,9 @@ def main():
             # log
             logger.add_scalar('loss_s', loss_s.item())
             logger.add_scalar('loss_tgt_dis', loss_dis.item())
+            # print("global_step: %5d\tloss_s: %.4f\n" % (global_step,loss_s))
+            # print("global_step: %5d\tloss_tgt_dis: %.4f\n" % (global_step,loss_dis))
+            global_step += 1
 
         epoch += 1
 
