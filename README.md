@@ -82,3 +82,10 @@ Change `EVALUATE` to `True` and modify `MODEL.RESUME` in config/train.yml and ru
 ```bash
 python main.py --config config/train.yml --gpu 0
 ``` 
+
+### Notation
+There are three important options:
+
+1. **RESUME = True or False** in lib/model/layer/trans_norm.py
+2. **OPTION = "BatchNorm" or "TransNorm"** in lib/model/pose_resnet.py
+3. **PROJ_NAME: pos-resnet34 or pos-resnet34-TBN-BaseNet-Clf** and another one of **RESUME = "/lastest.pth"** in lib/train.yml

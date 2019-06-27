@@ -37,7 +37,7 @@ TRAIN:
     NUM_K: 1
 
 MODEL:
-  RESUME: ""
+  RESUME: "/workspace/wangximei/Hand-Keypoint-Estimation/ckpt/pos-resnet34-TBN-BaseNet-Clf/best_model.pth"
   PRETRAINED: True
   IMG_SIZE: 64
   NUM_JOINTS: 21

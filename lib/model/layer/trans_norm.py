@@ -5,7 +5,7 @@ from torch.nn.parameter import Parameter
 from torch.nn import init
 import torch
 import itertools
-
+RESUME = True
 
 
 class _TransNorm(Module):
@@ -89,13 +89,14 @@ class _TransNorm(Module):
 
         for name, param in local_state.items():
             key = prefix + name
-            if key[-5:] == 'alpha':
-                continue
-            if key[-6:] == 'source' or key[-6:] == 'target':
-                if start_type == 'cold':
+            if not RESUME:
+                if key[-5:] == 'alpha':
                     continue
-                elif start_type == 'warm':
-                    key = key[:-7]
+                if key[-6:] == 'source' or key[-6:] == 'target':
+                    if start_type == 'cold':
+                        continue
+                    elif start_type == 'warm':
+                        key = key[:-7]
             if key in state_dict:
                 input_param = state_dict[key]
 
@@ -121,7 +122,7 @@ class _TransNorm(Module):
 
 
 
-    def forward(self, input, last_flag = False, option='residual', running_flag=False, kernel= 'Student'):
+    def forward(self, input, last_flag = False, option='None', running_flag=False, kernel= 'Student'):
         self._check_input_dim(input)
         if self.training :  ## train mode
             batch_size = input.size()[0] // 2
@@ -136,51 +137,54 @@ class _TransNorm(Module):
                 self.training or not self.track_running_stats, self.momentum, self.eps)
             x_hat = torch.cat((x_hat_source, x_hat_target), dim=0)
 
-            if running_flag:
-                weight = torch.abs(self.running_mean_source - self.running_mean_target)
-                cur_mean_source, cur_mean_target = self.running_mean_source, self.running_mean_target
+            if option == 'None':
+                return x_hat
             else:
-                if input.dim() == 4:    ## TransNorm2d
-                    input_source = input_source.permute(0,2,3,1).contiguous().view(-1,self.num_features)
-                    input_target = input_target.permute(0,2,3,1).contiguous().view(-1,self.num_features)
+                if running_flag:
+                    weight = torch.abs(self.running_mean_source - self.running_mean_target)
+                    cur_mean_source, cur_mean_target = self.running_mean_source, self.running_mean_target
+                else:
+                    if input.dim() == 4:    ## TransNorm2d
+                        input_source = input_source.permute(0,2,3,1).contiguous().view(-1,self.num_features)
+                        input_target = input_target.permute(0,2,3,1).contiguous().view(-1,self.num_features)
 
-                cur_mean_source = torch.mean(input_source, dim=0)
-                cur_var_source = torch.var(input_source,dim=0)
-                cur_mean_target = torch.mean(input_target, dim=0)
-                cur_var_target = torch.var(input_target, dim=0)
+                    cur_mean_source = torch.mean(input_source, dim=0)
+                    cur_var_source = torch.var(input_source,dim=0)
+                    cur_mean_target = torch.mean(input_target, dim=0)
+                    cur_var_target = torch.var(input_target, dim=0)
 
-            if kernel == 'Gaussian':
-                weight = torch.abs(cur_mean_source - cur_mean_target)  ## (1, D)
-                tau = torch.exp(-weight/(torch.median(weight) + self.eps))  ## (1, D)
-                ## Just a normal Gaussian is wrong here, so we add bandwidth
-            elif kernel == 'Softmax':
-                weight = torch.abs(cur_mean_source - cur_mean_target)  ## (1, D)
-                temperature = 0.05
-                tau = nn.Softmax(dim=0)(weight/temperature)
-            elif kernel == 'Student':
-                weight = torch.abs(cur_mean_source / torch.sqrt(cur_var_source + self.eps) - cur_mean_target / torch.sqrt(cur_var_target + self.eps))
-                tau = 1.0 / (1.0 + weight)
+                if kernel == 'Gaussian':
+                    weight = torch.abs(cur_mean_source - cur_mean_target)  ## (1, D)
+                    tau = torch.exp(-weight/(torch.median(weight) + self.eps))  ## (1, D)
+                    ## Just a normal Gaussian is wrong here, so we add bandwidth
+                elif kernel == 'Softmax':
+                    weight = torch.abs(cur_mean_source - cur_mean_target)  ## (1, D)
+                    temperature = 0.05
+                    tau = nn.Softmax(dim=0)(weight/temperature)
+                elif kernel == 'Student':
+                    weight = torch.abs(cur_mean_source / torch.sqrt(cur_var_source + self.eps) - cur_mean_target / torch.sqrt(cur_var_target + self.eps))
+                    tau = 1.0 / (1.0 + weight)
 
-            tau = self.num_features * tau / sum(tau)
+                tau = self.num_features * tau / sum(tau)
 
-            if input.dim() == 2:
-                tau = tau.view(1, self.num_features)
-            elif input.dim() == 4:
-                tau = tau.view(1, self.num_features, 1, 1)
+                if input.dim() == 2:
+                    tau = tau.view(1, self.num_features)
+                elif input.dim() == 4:
+                    tau = tau.view(1, self.num_features, 1, 1)
 
-            ##Winner takes all is wrong here, so we add temperature to diverse it
-            if option == 'out':
-                output = x_hat * tau.detach()
-            elif option == "None":
-                output = x_hat
-            elif option == "residual":
-                output = x_hat * (1 + tau.detach())
-            output_mean_source = torch.mean(output[:batch_size], dim=0) ## (1, D)
-            output_mean_target = torch.mean(output[batch_size:], dim=0)  ## (1, D)
-            if last_flag:
-                return output, tau, cur_mean_source, cur_mean_target, output_mean_source, output_mean_target
-            else:
-                return output
+                ##Winner takes all is wrong here, so we add temperature to diverse it
+                if option == 'out':
+                    output = x_hat * tau.detach()
+                elif option == "None":
+                    output = x_hat
+                elif option == "residual":
+                    output = x_hat * (1 + tau.detach())
+                output_mean_source = torch.mean(output[:batch_size], dim=0) ## (1, D)
+                output_mean_target = torch.mean(output[batch_size:], dim=0)  ## (1, D)
+                if last_flag:
+                    return output, tau, cur_mean_source, cur_mean_target, output_mean_source, output_mean_target
+                else:
+                    return output
 
         else: ##test mode
             x_hat = F.batch_norm(
